@@ -1,0 +1,61 @@
+{
+  "numeric_features": [
+    {"name": "amount", "label": "Transaction Amount", "enabled": true},
+    {"name": "nav", "label": "Fund NAV", "enabled": true},
+    {"name": "shares", "label": "Transaction Shares", "enabled": true},
+    {"name": "fee_rate", "label": "Fee Rate", "enabled": true},
+    {"name": "fee_amount", "label": "Fee Amount", "enabled": true},
+    {"name": "net_amount", "label": "Net Transaction Amount", "enabled": true},
+    {"name": "fund_risk_level", "label": "Fund Risk Level", "enabled": true},
+    {"name": "customer_age", "label": "Customer Age", "enabled": true},
+    {"name": "customer_risk_tolerance", "label": "Customer Risk Tolerance", "enabled": true},
+    {"name": "kyc_score", "label": "KYC Score", "enabled": true},
+    {"name": "aml_flag", "label": "AML Flag", "enabled": true},
+    {"name": "account_age_days", "label": "Account Age (days)", "enabled": true},
+    {"name": "recent_tx_count_7d", "label": "7-day TX Count", "enabled": true},
+    {"name": "recent_tx_count_30d", "label": "30-day TX Count", "enabled": true},
+    {"name": "recent_tx_amount_7d", "label": "7-day TX Amount", "enabled": true},
+    {"name": "recent_tx_amount_30d", "label": "30-day TX Amount", "enabled": true},
+    {"name": "same_day_tx_count", "label": "Same-day TX Count", "enabled": true},
+    {"name": "same_fund_tx_count", "label": "Same-day Same-fund TX Count", "enabled": true},
+    {"name": "holding_fund_count", "label": "Holding Fund Count", "enabled": true},
+    {"name": "total_holding_amount", "label": "Total Holding Amount", "enabled": true},
+    {"name": "holding_ratio", "label": "Holding Concentration", "enabled": true},
+    {"name": "ip_change_count_7d", "label": "7-day IP Changes", "enabled": true},
+    {"name": "device_change_count_7d", "label": "7-day Device Changes", "enabled": true},
+    {"name": "login_fail_count_24h", "label": "24h Login Failures", "enabled": true},
+    {"name": "trade_hour", "label": "Trade Hour", "enabled": true},
+    {"name": "rule_hit_count", "label": "Rule Sub-rule Hits", "enabled": true},
+    {"name": "rule_hit_category_count", "label": "Rule Category Hits", "enabled": true}
+  ],
+  "boolean_features": [
+    {"name": "is_high_risk_region", "label": "High-risk Region", "enabled": true},
+    {"name": "is_qualified_investor", "label": "Qualified Investor", "enabled": true},
+    {"name": "is_new_device", "label": "New Device", "enabled": true},
+    {"name": "is_large_transaction", "label": "Large Transaction", "enabled": true},
+    {"name": "is_cross_border", "label": "Cross-border TX", "enabled": true},
+    {"name": "is_related_party", "label": "Related Party TX", "enabled": true},
+    {"name": "blacklist_hit", "label": "Blacklist Hit", "enabled": true},
+    {"name": "watchlist_hit", "label": "Watchlist Hit", "enabled": true},
+    {"name": "is_trading_hours", "label": "Within Trading Hours", "enabled": true},
+    {"name": "is_month_end", "label": "Month End", "enabled": true},
+    {"name": "is_quarter_end", "label": "Quarter End", "enabled": true},
+    {"name": "rule_has_veto", "label": "Rule Veto Hit", "enabled": true}
+  ],
+  "categorical_features": [
+    {"name": "transaction_type", "label": "Transaction Type", "enabled": true},
+    {"name": "fund_type", "label": "Fund Type", "enabled": true},
+    {"name": "fund_company_rating", "label": "Fund Company Rating", "enabled": true},
+    {"name": "investor_type", "label": "Investor Type", "enabled": true},
+    {"name": "channel", "label": "Trading Channel", "enabled": true},
+    {"name": "payment_method", "label": "Payment Method", "enabled": true},
+    {"name": "currency", "label": "Currency", "enabled": true},
+    {"name": "id_type", "label": "ID Type", "enabled": true}
+  ],
+  "derived_features": [
+    {"name": "amount_per_tx_7d", "label": "7-day Avg Amount per TX", "formula": "amount / (recent_tx_count_7d + 1)", "enabled": true},
+    {"name": "tx_frequency_ratio", "label": "TX Frequency Change Rate", "formula": "recent_tx_count_7d / (recent_tx_count_30d + 1)", "enabled": true},
+    {"name": "risk_mismatch", "label": "Risk Level Mismatch", "formula": "customer_risk_tolerance < fund_risk_level", "enabled": true},
+    {"name": "new_account_large_tx", "label": "New Account Large TX", "formula": "account_age_days < 30 and amount >= 500000", "enabled": true}
+  ]
+}

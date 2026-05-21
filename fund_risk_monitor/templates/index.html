@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transaction Monitoring System</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, "Segoe UI", sans-serif; background: #0a0e27; color: #e0e6ff; min-height: 100vh; display: flex; flex-direction: column; }
+        .header { background: linear-gradient(135deg, #0d1340 0%, #1a237e 100%); padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #1e88e5; box-shadow: 0 2px 20px rgba(30,136,229,0.3); }
+        .header h1 { font-size: 22px; background: linear-gradient(90deg, #42a5f5, #26c6da); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 4px; }
+        .header-info { font-size: 13px; color: #90a4ae; }
+        .header-info .live-dot { display: inline-block; width: 8px; height: 8px; background: #4caf50; border-radius: 50%; margin-right: 6px; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+        .stats-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; padding: 20px 32px; }
+        .stat-card { background: linear-gradient(135deg, #111842 0%, #1a1f4e 100%); border: 1px solid #263238; border-radius: 12px; padding: 20px; text-align: center; }
+        .stat-card .label { font-size: 13px; color: #78909c; margin-bottom: 8px; }
+        .stat-card .value { font-size: 32px; font-weight: 700; }
+        .stat-card.blue .value { color: #42a5f5; }
+        .stat-card.red .value { color: #ef5350; }
+        .stat-card.orange .value { color: #ffa726; }
+        .stat-card.green .value { color: #66bb6a; }
+        .main-content { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 0 32px 20px; }
+        .main-content.full { grid-template-columns: 1fr; }
+        .panel { background: linear-gradient(135deg, #111842 0%, #141a4a 100%); border: 1px solid #1e2a5e; border-radius: 12px; overflow: hidden; }
+        .panel-header { padding: 14px 20px; font-size: 14px; font-weight: 600; border-bottom: 1px solid #1e2a5e; display: flex; justify-content: space-between; align-items: center; }
+        .panel-header .badge { background: #ef5350; color: #fff; padding: 2px 10px; border-radius: 10px; font-size: 12px; }
+        .panel-body { padding: 12px; max-height: 420px; overflow-y: auto; }
+        .panel-body.flex-fill { max-height: none; flex: 1 1 0; min-height: 200px; overflow-y: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th { background: #0d1340; padding: 10px 8px; text-align: left; color: #78909c; font-weight: 500; position: sticky; top: 0; z-index: 1; }
+        td { padding: 9px 8px; border-bottom: 1px solid #1a1f4e; }
+        tr:hover td { background: rgba(30,136,229,0.08); }
+        tr.clickable { cursor: pointer; }
+        tr.clickable:hover td { background: rgba(30,136,229,0.15); }
+        .risk-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+        .risk-tag.extreme { background: #b71c1c; color: #ffcdd2; }
+        .risk-tag.high { background: #e65100; color: #ffe0b2; }
+        .risk-tag.medium { background: #f57f17; color: #fff9c4; }
+        .risk-tag.low { background: #1b5e20; color: #c8e6c9; }
+        .risk-tag.normal { background: #1a237e; color: #c5cae9; }
+        .dist-bar-container { padding: 16px 20px; }
+        .dist-item { margin-bottom: 12px; }
+        .dist-label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
+        .dist-bar { height: 22px; background: #1a1f4e; border-radius: 4px; overflow: hidden; }
+        .dist-bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; display: flex; align-items: center; padding-left: 8px; font-size: 11px; font-weight: 600; }
+        .panel-body::-webkit-scrollbar { width: 4px; }
+        .panel-body::-webkit-scrollbar-track { background: transparent; }
+        .panel-body::-webkit-scrollbar-thumb { background: #263238; border-radius: 2px; }
+        .tabs { display: flex; gap: 0; }
+        .tab-btn { background: none; border: none; color: #78909c; padding: 14px 20px; cursor: pointer; font-size: 14px; font-weight: 600; border-bottom: 2px solid transparent; }
+        .tab-btn.active { color: #42a5f5; border-bottom-color: #42a5f5; }
+        .tab-btn:hover { color: #90caf9; }
+        .tab-content { display: none; }
+        .tab-content.active { display: flex; flex-direction: column; flex: 1; }
+        .bottom-panel { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+        .amount { font-family: "Courier New", monospace; }
+        .prob { font-family: "Courier New", monospace; font-weight: 700; }
+        .prob.high-prob { color: #ef5350; }
+        .prob.med-prob { color: #ffa726; }
+        .prob.low-prob { color: #66bb6a; }
+        .rule-tags { display: flex; flex-wrap: wrap; gap: 3px; max-width: 280px; }
+        .rule-tag { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px; background: #1a237e; color: #90caf9; white-space: nowrap; }
+        .rule-tag.cat-hit { background: #4a148c; color: #ce93d8; }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 100; justify-content: center; align-items: center; }
+        .modal-overlay.show { display: flex; }
+        .modal { background: #141a4a; border: 1px solid #1e88e5; border-radius: 16px; width: 680px; max-height: 80vh; overflow-y: auto; box-shadow: 0 8px 40px rgba(30,136,229,0.4); }
+        .modal-header { padding: 20px 24px; border-bottom: 1px solid #1e2a5e; display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h2 { font-size: 16px; color: #ef5350; }
+        .modal-close { background: none; border: none; color: #78909c; font-size: 20px; cursor: pointer; }
+        .modal-close:hover { color: #fff; }
+        .modal-body { padding: 20px 24px; }
+        .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+        .detail-item { padding: 10px 14px; background: #0d1340; border-radius: 8px; }
+        .detail-item .dl { font-size: 11px; color: #78909c; margin-bottom: 4px; }
+        .detail-item .dv { font-size: 14px; font-weight: 600; }
+        .hit-rules-section { margin-bottom: 20px; }
+        .hit-rules-section h3 { font-size: 13px; color: #78909c; margin-bottom: 10px; }
+        .hit-cat { background: #0d1340; border-radius: 8px; padding: 12px 16px; margin-bottom: 8px; }
+        .hit-cat-name { font-size: 13px; font-weight: 600; color: #ce93d8; margin-bottom: 6px; }
+        .hit-cat-rule { font-size: 12px; color: #b0bec5; padding: 3px 0; padding-left: 12px; border-left: 2px solid #4a148c; margin-bottom: 4px; }
+        .modal-footer { padding: 16px 24px; border-top: 1px solid #1e2a5e; display: flex; gap: 12px; justify-content: flex-end; align-items: center; }
+        .review-input { flex: 1; background: #0d1340; border: 1px solid #263238; border-radius: 8px; padding: 10px 14px; color: #e0e6ff; font-size: 13px; }
+        .review-input:focus { outline: none; border-color: #1e88e5; }
+        .btn { padding: 10px 24px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+        .btn-approve { background: #2e7d32; color: #fff; }
+        .btn-approve:hover { background: #388e3c; }
+        .btn-reject { background: #c62828; color: #fff; }
+        .btn-reject:hover { background: #d32f2f; }
+        .control-bar { display: flex; align-items: center; gap: 12px; padding: 10px 32px; flex-wrap: wrap; }
+        .ctrl-btn { padding: 8px 18px; border: 1px solid #263238; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all .2s; display: flex; align-items: center; gap: 6px; }
+        .ctrl-btn:hover { transform: translateY(-1px); }
+        .ctrl-btn.pause { background: #1a237e; color: #90caf9; border-color: #1e88e5; }
+        .ctrl-btn.pause:hover { background: #283593; }
+        .ctrl-btn.pause.active { background: #e65100; color: #fff; border-color: #ff9800; }
+        .ctrl-btn.stress { background: #1a237e; color: #ce93d8; border-color: #7b1fa2; }
+        .ctrl-btn.stress:hover { background: #283593; }
+        .ctrl-btn.stress.active { background: #6a1b9a; color: #fff; border-color: #ab47bc; animation: stressPulse 1s infinite; }
+        @keyframes stressPulse { 0%,100%{box-shadow:0 0 0 0 rgba(171,71,188,0.4)} 50%{box-shadow:0 0 12px 4px rgba(171,71,188,0.2)} }
+        .ctrl-btn.train { background: #1a237e; color: #81c784; border-color: #388e3c; }
+        .ctrl-btn.train:hover { background: #283593; }
+        .ctrl-btn.train.active { background: #2e7d32; color: #fff; border-color: #66bb6a; }
+        .ctrl-sep { width: 1px; height: 28px; background: #263238; }
+        .perf-box { display: flex; gap: 14px; align-items: center; margin-left: auto; }
+        .perf-item { text-align: center; }
+        .perf-item .pk { font-size: 9px; color: #546e7a; }
+        .perf-item .pv { font-size: 14px; font-weight: 700; font-family: "Courier New", monospace; }
+        .perf-item .pv.tps { color: #42a5f5; }
+        .perf-item .pv.ms { color: #ffa726; }
+        .perf-item .pv.peak { color: #ef5350; }
+        .tps-input { width: 60px; background: #0d1340; border: 1px solid #263238; border-radius: 6px; padding: 6px 8px; color: #e0e6ff; font-size: 12px; text-align: center; }
+        .tps-input:focus { outline: none; border-color: #7b1fa2; }
+        .train-progress { font-size: 11px; color: #81c784; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .model-select { background: #0d1340; border: 1px solid #263238; border-radius: 6px; padding: 6px 10px; color: #e0e6ff; font-size: 11px; cursor: pointer; max-width: 180px; }
+        .model-select:focus { outline: none; border-color: #1e88e5; }
+        .model-label { font-size: 10px; color: #78909c; }
+        .review-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 16px; }
+        .rs-item { text-align: center; padding: 12px; background: #0a0e27; border-radius: 8px; }
+        .rs-item .rs-num { font-size: 24px; font-weight: 700; font-family: "Courier New", monospace; }
+        .rs-item .rs-label { font-size: 11px; color: #78909c; margin-top: 4px; }
+        .rs-item.pending .rs-num { color: #ffa726; }
+        .rs-item.approved .rs-num { color: #66bb6a; }
+        .rs-item.rejected .rs-num { color: #ef5350; }
+        .rs-item.rate .rs-num { color: #42a5f5; }
+        .override-tag { display: inline-block; padding: 1px 5px; border-radius: 3px; font-size: 9px; background: #b71c1c; color: #ffcdd2; margin-left: 4px; }
+        .trigger-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; white-space: nowrap; }
+        .trigger-tag.rule-veto { background: #b71c1c; color: #ffcdd2; }
+        .trigger-tag.ml-model { background: #1565c0; color: #bbdefb; }
+        .trigger-tag.both { background: #4a148c; color: #e1bee7; }
+        .trigger-tag.normal { background: #1a237e; color: #c5cae9; }
+        .fc-group { margin-bottom: 16px; }
+        .fc-group-title { font-size: 12px; font-weight: 600; color: #90caf9; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #1e2a5e; }
+        .fc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px; }
+        .fc-item { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: #0a0e27; border-radius: 6px; cursor: pointer; transition: all .2s; }
+        .fc-item:hover { background: #111842; }
+        .fc-item input[type="checkbox"] { accent-color: #42a5f5; width: 14px; height: 14px; cursor: pointer; }
+        .fc-item .fc-name { font-size: 11px; font-family: "Courier New", monospace; color: #e0e6ff; }
+        .fc-item .fc-label { font-size: 10px; color: #78909c; }
+        .fc-item.disabled { opacity: 0.35; }
+        .fc-item .fc-formula { font-size: 9px; color: #546e7a; font-style: italic; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>⚡ Transaction Monitoring System</h1>
+        <div class="header-info">
+            <a href="/pipeline" style="color:#42a5f5;text-decoration:none;font-size:13px">🧠 AI Inference Pipeline →</a> &nbsp;|&nbsp;
+            <span class="live-dot"></span>Live Monitoring &nbsp;|&nbsp; Uptime: <span id="uptime">00:00:00</span> &nbsp;|&nbsp; Refresh: 2s
+        </div>
+    </div>
+    <div class="stats-row">
+        <div class="stat-card blue"><div class="label">Processed Transactions</div><div class="value" id="totalProcessed">0</div></div>
+        <div class="stat-card red"><div class="label">Pending Alerts</div><div class="value" id="totalAlerts">0</div></div>
+        <div class="stat-card orange"><div class="label">Alert Rate</div><div class="value" id="alertRate">0%</div></div>
+        <div class="stat-card green"><div class="label">Reviewed / Total</div><div class="value" id="reviewedCount">0/0</div></div>
+    </div>
+
+    <!-- Control Panel -->
+    <div class="control-bar">
+        <button class="ctrl-btn pause" id="btnPause" onclick="togglePause()">⏸ Pause TX</button>
+        <div class="ctrl-sep"></div>
+        <button class="ctrl-btn stress" id="btnStress" onclick="toggleStress()">⚡ Stress Test</button>
+        <span style="font-size:11px;color:#78909c">TPS:</span>
+        <input type="number" class="tps-input" id="tpsInput" value="50" min="1" max="200" />
+        <div class="ctrl-sep"></div>
+        <button class="ctrl-btn train" id="btnTrain" onclick="startRetrain()">🔄 Retrain Model</button>
+        <span class="train-progress" id="trainProgress"></span>
+        <div class="ctrl-sep"></div>
+        <div style="display:flex;flex-direction:column;gap:2px">
+            <span class="model-label">Active Model</span>
+            <select class="model-select" id="modelSelect" onchange="switchModel(this.value)"></select>
+        </div>
+        <div class="perf-box">
+            <div class="perf-item"><div class="pk">Current TPS</div><div class="pv tps" id="perfTps">-</div></div>
+            <div class="perf-item"><div class="pk">Peak TPS</div><div class="pv peak" id="perfPeak">-</div></div>
+            <div class="perf-item"><div class="pk">Inference</div><div class="pv ms" id="perfInfer">-</div></div>
+            <div class="perf-item"><div class="pk">Rules</div><div class="pv ms" id="perfRule">-</div></div>
+            <div class="perf-item"><div class="pk">Total</div><div class="pv ms" id="perfTotal">-</div></div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="panel">
+            <div class="panel-header">📊 Risk Level Distribution</div>
+            <div class="dist-bar-container" id="distChart"></div>
+        </div>
+        <div class="panel">
+            <div class="panel-header">🚨 Pending Alerts <span style="font-size:11px;color:#78909c">(click row to review)</span> <span class="badge" id="alertBadge">0</span></div>
+            <div class="panel-body" id="alertsBody" style="max-height:280px">
+                <table>
+                    <thead><tr><th>Time</th><th>Customer</th><th>Fund</th><th>Amount</th><th>Region</th><th>Prob</th><th>Level</th><th>Trigger</th><th>Rules Hit</th></tr></thead>
+                    <tbody id="alertsTable"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-content full">
+        <div class="panel">
+            <div class="panel-header">💰 Transaction Amount Scatter <span style="font-size:11px;color:#78909c">(last 100 · color=risk level · size=amount)</span></div>
+            <div style="padding:12px"><canvas id="scatterCanvas" style="width:100%;height:200px"></canvas></div>
+        </div>
+    </div>
+
+    <div class="main-content full" style="flex:1;display:flex;flex-direction:column;padding-bottom:20px">
+        <div class="panel" style="flex:1;display:flex;flex-direction:column;min-height:0">
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('all',event)">All Transactions</button>
+                <button class="tab-btn" onclick="switchTab('rules',event)">Risk Rules (9 categories, 43 rules)</button>
+                <button class="tab-btn" id="featTabBtn" onclick="switchTab('features',event)">Model Features</button>
+                <button class="tab-btn" onclick="switchTab('featureconfig',event)">⚙ Feature Config</button>
+            </div>
+            <div class="tab-content active" id="tab-all">
+                <div class="panel-body flex-fill">
+                    <table>
+                        <thead><tr><th>TX ID</th><th>Time</th><th>Customer</th><th>Type</th><th>Fund</th><th>Amount</th><th>Region</th><th>Channel</th><th>Payment</th><th>Prob</th><th>Level</th><th>Trigger</th><th>Rules Hit</th><th>Label</th></tr></thead>
+                        <tbody id="txTable"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="tab-content" id="tab-rules">
+                <div class="panel-body flex-fill">
+                    <table>
+                        <thead><tr><th>Rule ID</th><th>Category</th><th>Sub-rule</th><th>Description</th><th>Weight</th><th>Veto</th></tr></thead>
+                        <tbody id="rulesTable"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="tab-content" id="tab-features">
+                <div class="panel-body flex-fill">
+                    <div style="padding:8px 12px;font-size:12px;color:#78909c;border-bottom:1px solid #1e2a5e">
+                        XGBoost model uses <span style="color:#42a5f5;font-weight:700" id="featTotal">80</span> features for training and inference.
+                        Feature sources: ~50 raw fields → Numeric + Boolean + One-Hot Encoded + Derived Features
+                    </div>
+                    <table>
+                        <thead><tr><th style="width:40px">#</th><th>Feature Name</th><th>Source Type</th><th style="width:100px">Importance</th><th style="width:200px">Visualization</th></tr></thead>
+                        <tbody id="featTable"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="tab-content" id="tab-featureconfig">
+                <div style="padding:12px 16px;font-size:12px;color:#78909c;border-bottom:1px solid #1e2a5e;display:flex;justify-content:space-between;align-items:center">
+                    <span>Check features to include in model training. Unchecked features will not be used. Click "Save & Train" after changes.</span>
+                    <div style="display:flex;gap:8px">
+                        <button class="btn" style="background:#1565c0;padding:6px 14px;font-size:11px" onclick="selectAllFeatures(true)">Select All</button>
+                        <button class="btn" style="background:#455a64;padding:6px 14px;font-size:11px" onclick="selectAllFeatures(false)">Deselect All</button>
+                        <button class="btn btn-approve" style="padding:6px 14px;font-size:11px" onclick="saveFeatureConfig()">💾 Save & Train</button>
+                    </div>
+                </div>
+                <div class="panel-body flex-fill" style="padding:16px" id="featureConfigBody">
+                    <div style="color:#546e7a;font-size:11px">Loading...</div>
+                </div>
+                <div style="padding:8px 16px;border-top:1px solid #1e2a5e;font-size:11px;color:#78909c" id="fcStatus"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Review Modal -->
+    <div class="modal-overlay" id="reviewModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>🔍 Alert Details - Manual Review</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+            <div class="modal-footer">
+                <input class="review-input" id="reviewComment" placeholder="Review notes (optional)..." />
+                <button class="btn btn-approve" onclick="submitReview('approved')">✓ Approve</button>
+                <button class="btn btn-reject" onclick="submitReview('rejected')">✗ Reject</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let _currentAlertId = null;
+        let _featureConfig = null;
+
+        function fmtAmt(v) {
+            return '¥' + Number(v||0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+        }
+        function riskTag(level) {
+            const cls = {'Critical':'extreme','High':'high','Medium':'medium','Low':'low','Normal':'normal'}[level] || 'normal';
+            return `<span class="risk-tag ${cls}">${level}</span>`;
+        }
+        function probSpan(p) {
+            const pct = (p*100).toFixed(1) + '%';
+            const cls = p >= 0.6 ? 'high-prob' : p >= 0.3 ? 'med-prob' : 'low-prob';
+            return `<span class="prob ${cls}">${pct}</span>`;
+        }
+        function triggerTag(rec) {
+            let ruleHit = (rec.hit_count || 0) > 0;
+            let modelHit = rec.risk_label === 1;
+            let veto = rec.rule_override;
+            if (veto) return '<span class="trigger-tag rule-veto">⚡ Rule Veto</span>';
+            if (ruleHit && modelHit) return '<span class="trigger-tag both">Rule+ML</span>';
+            if (ruleHit) return '<span class="trigger-tag rule-veto" style="background:#4a148c;color:#e1bee7">Rule Only</span>';
+            if (modelHit) return '<span class="trigger-tag ml-model">ML Model</span>';
+            return '<span class="trigger-tag normal">Normal</span>';
+        }
+        function labelBtns(rec) {
+            const id = rec.id;
+            if (!id) return '';
+            const cur = rec.manual_label;
+            if (cur === 1) return '<span style="color:#ef5350;font-size:10px">⚠ High Risk</span>';
+            if (cur === 0) return '<span style="color:#66bb6a;font-size:10px">✓ Normal</span>';
+            return `<button style="font-size:9px;padding:2px 6px;border:1px solid #c62828;background:transparent;color:#ef5350;border-radius:3px;cursor:pointer;margin-right:2px" onclick="event.stopPropagation();markTx(${id},1)">⚠</button>` +
+                   `<button style="font-size:9px;padding:2px 6px;border:1px solid #2e7d32;background:transparent;color:#66bb6a;border-radius:3px;cursor:pointer" onclick="event.stopPropagation();markTx(${id},0)">✓</button>`;
+        }
+
+        function switchTab(name, e) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById('tab-'+name).classList.add('active');
+            if(e && e.target) e.target.classList.add('active');
+            if (name === 'featureconfig' && !_featureConfig) loadFeatureConfig();
+        }
+
+        // === Data Loading ===
+        async function loadStats() {
+            const r = await fetch('/api/stats');
+            const d = await r.json();
+            document.getElementById('totalProcessed').textContent = d.total_processed.toLocaleString();
+            document.getElementById('totalAlerts').textContent = d.pending_alerts.toLocaleString();
+            document.getElementById('alertRate').textContent = d.alert_rate + '%';
+            document.getElementById('uptime').textContent = d.uptime || '00:00:00';
+            renderDist(d.risk_distribution);
+            loadReviewStats();
+        }
+        async function loadReviewStats() {
+            try {
+                const r = await fetch('/api/review_stats');
+                const d = await r.json();
+                document.getElementById('reviewedCount').textContent = d.reviewed + '/' + d.total;
+            } catch(e) {}
+        }
+        function renderDist(dist) {
+            const levels = [
+                {key:'Critical', color:'#b71c1c'},
+                {key:'High', color:'#e65100'},
+                {key:'Medium', color:'#f57f17'},
+                {key:'Low', color:'#1b5e20'},
+                {key:'Normal', color:'#1a237e'}
+            ];
+            const total = Object.values(dist).reduce((a,b)=>a+b, 0) || 1;
+            let html = '';
+            for (const l of levels) {
+                const cnt = dist[l.key] || 0;
+                const pct = (cnt/total*100).toFixed(1);
+                html += `<div class="dist-item"><div class="dist-label"><span>${l.key}</span><span>${cnt} (${pct}%)</span></div><div class="dist-bar"><div class="dist-bar-fill" style="width:${Math.max(pct,1)}%;background:${l.color}">${cnt>0?cnt:''}</div></div></div>`;
+            }
+            document.getElementById('distChart').innerHTML = html;
+        }
+
+        async function loadTransactions() {
+            const r = await fetch('/api/transactions?limit=100');
+            const data = await r.json();
+            let html = '';
+            for (const tx of data) {
+                const cats = tx.hit_categories || [];
+                let catTags = '';
+                if (cats.length > 0) {
+                    for (const cat of cats) {
+                        catTags += `<span class="rule-tag cat-hit" title="${(cat.hit_rules||[]).map(r=>r.rule_id+': '+r.name).join('\n')}">${cat.category_name}(${(cat.hit_rules||[]).length})</span>`;
+                    }
+                } else if (tx.hit_summary) {
+                    for (const rid of tx.hit_summary.split(',')) {
+                        catTags += `<span class="rule-tag">${rid.trim()}</span>`;
+                    }
+                }
+                html += `<tr class="clickable" onclick='showTxDetail(${JSON.stringify(tx).replace(/'/g,"&#39;")})'>
+                    <td style="font-size:10px;font-family:monospace">${(tx.transaction_id||'').substring(0,8)}</td>
+                    <td style="font-size:10px">${(tx.processed_at||tx.trade_time||'').substring(11,19)}</td>
+                    <td>${tx.customer_id||''}</td>
+                    <td>${tx.transaction_type||''}</td>
+                    <td style="font-size:10px">${tx.fund_name||''}</td>
+                    <td class="amount">${fmtAmt(tx.amount)}</td>
+                    <td>${tx.region_name||''}</td>
+                    <td>${tx.channel||''}</td>
+                    <td>${tx.payment_method||''}</td>
+                    <td>${probSpan(tx.risk_probability||0)}</td>
+                    <td>${riskTag(tx.risk_level||'Normal')}</td>
+                    <td>${triggerTag(tx)}</td>
+                    <td><div class="rule-tags">${catTags}</div></td>
+                    <td>${labelBtns(tx)}</td>
+                </tr>`;
+            }
+            document.getElementById('txTable').innerHTML = html;
+        }
+
+        async function loadAlerts() {
+            const r = await fetch('/api/alerts?limit=50');
+            const data = await r.json();
+            document.getElementById('alertBadge').textContent = data.length;
+            let html = '';
+            for (const a of data) {
+                const cats = a.hit_categories || [];
+                let catTags = '';
+                for (const cat of cats) {
+                    catTags += `<span class="rule-tag cat-hit">${cat.category_name}(${(cat.hit_rules||[]).length})</span>`;
+                }
+                if (!catTags && a.hit_summary) {
+                    for (const rid of a.hit_summary.split(',')) {
+                        catTags += `<span class="rule-tag">${rid.trim()}</span>`;
+                    }
+                }
+                html += `<tr class="clickable" onclick='openReview(${JSON.stringify(a).replace(/'/g,"&#39;")})'>
+                    <td style="font-size:10px">${(a.processed_at||'').substring(11,19)}</td>
+                    <td>${a.customer_id||''}</td>
+                    <td style="font-size:10px">${a.fund_name||''}</td>
+                    <td class="amount">${fmtAmt(a.amount)}</td>
+                    <td>${a.region_name||''}</td>
+                    <td>${probSpan(a.risk_probability||0)}</td>
+                    <td>${riskTag(a.risk_level||'High')}</td>
+                    <td>${triggerTag(a)}</td>
+                    <td><div class="rule-tags">${catTags}</div></td>
+                </tr>`;
+            }
+            document.getElementById('alertsTable').innerHTML = html;
+        }
+
+        async function loadRules() {
+            const r = await fetch('/api/rules');
+            const data = await r.json();
+            let html = '';
+            for (const cat of data) {
+                const subs = cat.sub_rules || [];
+                const w = cat.risk_weight || '';
+                // Weight color: 5=red, 4=orange, 3=yellow, <=2=green
+                const wColor = w>=5?'#ef5350':w>=4?'#ffa726':w>=3?'#fdd835':'#66bb6a';
+                const wBadge = w ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;background:${wColor}22;color:${wColor};font-weight:700;font-size:11px">${w}</span>` : '';
+                for (let i = 0; i < subs.length; i++) {
+                    const sub = subs[i];
+                    const vetoChecked = sub.veto ? 'checked' : '';
+                    // Only show category name and weight on first sub-rule row
+                    const catCell = i === 0
+                        ? `<td rowspan="${subs.length}" style="vertical-align:top;padding-top:10px">${cat.category_name||cat.category_id}</td>`
+                        : '';
+                    const weightCell = i === 0
+                        ? `<td rowspan="${subs.length}" style="vertical-align:middle;text-align:center">${wBadge}<div style="font-size:9px;color:#546e7a;margin-top:3px">manually<br>defined</div></td>`
+                        : '';
+                    html += `<tr>
+                        <td style="font-family:monospace;font-size:11px">${sub.rule_id}</td>
+                        ${catCell}
+                        <td>${sub.name||''}</td>
+                        <td style="font-size:11px;color:#b0bec5">${sub.description||''}</td>
+                        ${weightCell}
+                        <td><input type="checkbox" ${vetoChecked} onchange="toggleVeto('${sub.rule_id}',this.checked)" style="accent-color:#ef5350;cursor:pointer" /></td>
+                    </tr>`;
+                }
+            }
+            document.getElementById('rulesTable').innerHTML = html;
+        }
+
+        async function loadFeatures() {
+            const r = await fetch('/api/features');
+            const d = await r.json();
+            document.getElementById('featTotal').textContent = d.total;
+            let html = '';
+            const maxImp = d.features.length > 0 ? d.features[0].importance : 1;
+            d.features.forEach((f, i) => {
+                const pct = (f.importance / maxImp * 100).toFixed(1);
+                const barColor = f.source === 'Derived Feature' ? '#ab47bc' : f.source === 'Boolean Feature' ? '#26a69a' : f.source === 'One-Hot Encoded' ? '#5c6bc0' : '#42a5f5';
+                html += `<tr>
+                    <td style="color:#546e7a">${i+1}</td>
+                    <td style="font-family:monospace;font-size:11px">${f.name}</td>
+                    <td style="font-size:11px;color:#78909c">${f.source}</td>
+                    <td style="font-family:monospace;font-size:11px">${f.importance.toFixed(6)}</td>
+                    <td><div style="height:14px;background:#1a1f4e;border-radius:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px"></div></div></td>
+                </tr>`;
+            });
+            document.getElementById('featTable').innerHTML = html;
+        }
+
+        // === Feature Config ===
+        async function loadFeatureConfig() {
+            const r = await fetch('/api/feature_config');
+            _featureConfig = await r.json();
+            renderFeatureConfig();
+        }
+        function renderFeatureConfig() {
+            if (!_featureConfig || Object.keys(_featureConfig).length === 0) {
+                buildDefaultFeatureConfig();
+            }
+            const body = document.getElementById('featureConfigBody');
+            const groups = [
+                {key:'numeric_features', title:'📊 Numeric Features'},
+                {key:'boolean_features', title:'✓ Boolean Features'},
+                {key:'categorical_features', title:'🏷 Categorical Features (One-Hot Encoded)'},
+                {key:'derived_features', title:'🧮 Derived Features'},
+            ];
+            let html = '';
+            for (const g of groups) {
+                const items = _featureConfig[g.key] || [];
+                if (items.length === 0) continue;
+                html += `<div class="fc-group"><div class="fc-group-title">${g.title} (${items.length})</div><div class="fc-grid">`;
+                for (const feat of items) {
+                    const checked = feat.enabled !== false ? 'checked' : '';
+                    const cls = feat.enabled !== false ? '' : ' disabled';
+                    const formula = feat.formula ? `<div class="fc-formula">${feat.formula}</div>` : '';
+                    html += `<div class="fc-item${cls}" onclick="this.querySelector('input').click()">
+                        <input type="checkbox" ${checked} data-group="${g.key}" data-name="${feat.name}" onclick="event.stopPropagation();toggleFeature('${g.key}','${feat.name}',this.checked)" />
+                        <div><div class="fc-name">${feat.name}</div>${formula}</div>
+                    </div>`;
+                }
+                html += `</div></div>`;
+            }
+            body.innerHTML = html;
+        }
+        function buildDefaultFeatureConfig() {
+            _featureConfig = {
+                numeric_features: [
+                    {name:'amount',enabled:true},{name:'account_age_days',enabled:true},{name:'recent_tx_count_7d',enabled:true},
+                    {name:'recent_tx_amount_7d',enabled:true},{name:'ip_change_count_7d',enabled:true},{name:'login_fail_count_24h',enabled:true},
+                    {name:'device_change_count_7d',enabled:true},{name:'same_day_tx_count',enabled:true},{name:'kyc_score',enabled:true},
+                    {name:'holding_amount',enabled:true},{name:'holding_days',enabled:true},{name:'fund_nav',enabled:true},
+                    {name:'fund_volatility',enabled:true},{name:'fund_sharpe_ratio',enabled:true},{name:'fund_max_drawdown',enabled:true},
+                    {name:'fund_aum',enabled:true},{name:'aml_flag',enabled:true},{name:'rule_hit_count',enabled:true},
+                    {name:'rule_hit_category_count',enabled:true},{name:'rule_has_veto',enabled:true},
+                ],
+                boolean_features: [
+                    {name:'is_high_risk_region',enabled:true},{name:'is_qualified_investor',enabled:true},{name:'is_new_device',enabled:true},
+                    {name:'is_large_transaction',enabled:true},{name:'is_cross_border',enabled:true},{name:'is_related_party',enabled:true},
+                    {name:'blacklist_hit',enabled:true},{name:'watchlist_hit',enabled:true},{name:'is_trading_hours',enabled:true},
+                    {name:'is_month_end',enabled:true},{name:'is_quarter_end',enabled:true},
+                ],
+                categorical_features: [
+                    {name:'transaction_type',enabled:true},{name:'fund_type',enabled:true},{name:'fund_company_rating',enabled:true},
+                    {name:'investor_type',enabled:true},{name:'channel',enabled:true},{name:'payment_method',enabled:true},
+                    {name:'currency',enabled:true},{name:'id_type',enabled:true},
+                ],
+                derived_features: [
+                    {name:'amount_per_tx_7d',enabled:true,formula:'amount / max(recent_tx_count_7d, 1)'},
+                    {name:'tx_frequency_ratio',enabled:true,formula:'same_day_tx_count / max(recent_tx_count_7d/7, 1)'},
+                    {name:'risk_mismatch',enabled:true,formula:'is_high_risk_region * is_large_transaction * (1-is_qualified_investor)'},
+                    {name:'new_account_large_tx',enabled:true,formula:'(account_age_days<30) * is_large_transaction'},
+                ],
+            };
+        }
+        function toggleFeature(group, name, enabled) {
+            if (!_featureConfig[group]) return;
+            const feat = _featureConfig[group].find(f => f.name === name);
+            if (feat) {
+                feat.enabled = enabled;
+                const item = event.target.closest('.fc-item');
+                if (item) item.classList.toggle('disabled', !enabled);
+            }
+        }
+        function selectAllFeatures(val) {
+            for (const g of ['numeric_features','boolean_features','categorical_features','derived_features']) {
+                for (const f of (_featureConfig[g]||[])) f.enabled = val;
+            }
+            renderFeatureConfig();
+        }
+        async function saveFeatureConfig() {
+            const r = await fetch('/api/feature_config', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(_featureConfig)});
+            const d = await r.json();
+            document.getElementById('fcStatus').textContent = d.message || 'Saved';
+            document.getElementById('fcStatus').style.color = '#66bb6a';
+        }
+
+        // === Scatter Chart ===
+        function drawScatter(data) {
+            const canvas = document.getElementById('scatterCanvas');
+            const ctx = canvas.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+            const W = rect.width, H = rect.height;
+            ctx.clearRect(0, 0, W, H);
+
+            if (!data || data.length === 0) return;
+
+            const maxAmt = Math.max(...data.map(d => d.amount || 0), 1);
+            const colorMap = {'Critical':'#ef5350','High':'#ff9800','Medium':'#fdd835','Low':'#66bb6a','Normal':'#42a5f5'};
+
+            for (let i = 0; i < data.length; i++) {
+                const d = data[i];
+                const x = (i / data.length) * (W - 40) + 20;
+                const y = H - 20 - ((d.amount||0) / maxAmt) * (H - 40);
+                const r = Math.max(2, Math.min(12, (d.amount||0) / maxAmt * 12));
+                const color = colorMap[d.risk_level] || '#42a5f5';
+                ctx.beginPath();
+                ctx.arc(x, y, r, 0, Math.PI * 2);
+                ctx.fillStyle = color;
+                ctx.globalAlpha = 0.7;
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            }
+
+            // Y-axis labels
+            ctx.fillStyle = '#546e7a';
+            ctx.font = '9px sans-serif';
+            ctx.textAlign = 'right';
+            for (let i = 0; i <= 4; i++) {
+                const val = (maxAmt * i / 4);
+                const y = H - 20 - (i / 4) * (H - 40);
+                ctx.fillText('¥' + Math.round(val).toLocaleString(), 48, y + 3);
+            }
+        }
+
+        // === Modal / Review ===
+        function showTxDetail(tx) {
+            openReview(tx);
+        }
+        function openReview(alert) {
+            _currentAlertId = alert.id || null;
+            const m = document.getElementById('modalBody');
+            const cats = alert.hit_categories || [];
+            let catHtml = '';
+            for (const cat of cats) {
+                catHtml += `<div class="hit-cat"><div class="hit-cat-name">${cat.category_name}</div>`;
+                for (const r of (cat.hit_rules||[])) {
+                    catHtml += `<div class="hit-cat-rule">${r.rule_id}: ${r.name}${r.veto ? '<span class="override-tag">VETO</span>' : ''} <span style="color:#546e7a;font-size:10px">(w:${r.weight})</span></div>`;
+                }
+                catHtml += `</div>`;
+            }
+            if (!catHtml && alert.hit_summary) {
+                catHtml = `<div class="hit-cat"><div class="hit-cat-name">Hit Rules</div><div class="hit-cat-rule">${alert.hit_summary}</div></div>`;
+            }
+
+            let inferHtml = '';
+            const inf = alert.inference_detail;
+            if (inf && inf.top_features && inf.top_features.length > 0) {
+                inferHtml = `<div class="hit-rules-section"><h3>🧠 Top Feature Contributions (SHAP)</h3>`;
+                for (const f of inf.top_features) {
+                    const dir = f.direction === 'risk' ? '🔴' : '🟢';
+                    const barW = Math.min(Math.abs(f.contribution) * 300, 100);
+                    const barColor = f.direction === 'risk' ? '#ef5350' : '#66bb6a';
+                    inferHtml += `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:11px">
+                        <span style="width:16px">${dir}</span>
+                        <span style="width:180px;font-family:monospace;color:#90caf9">${f.name}</span>
+                        <span style="width:60px;text-align:right;color:#78909c">val=${f.value}</span>
+                        <div style="flex:1;height:10px;background:#1a1f4e;border-radius:3px;overflow:hidden"><div style="height:100%;width:${barW}%;background:${barColor};border-radius:3px"></div></div>
+                        <span style="width:60px;font-family:monospace;font-size:10px;color:${barColor}">${f.contribution > 0 ? '+' : ''}${f.contribution}</span>
+                    </div>`;
+                }
+                inferHtml += `<div style="margin-top:8px;font-size:10px;color:#546e7a">Bias: ${inf.bias?.toFixed(4) || '-'} | Margin: ${inf.margin || '-'} | Trees: ${inf.n_trees || '-'}</div>`;
+                inferHtml += `</div>`;
+
+                // Sample tree paths
+                if (inf.sample_trees && inf.sample_trees.length > 0) {
+                    inferHtml += `<div class="hit-rules-section"><h3>🌲 Sample Decision Tree Paths</h3>`;
+                    for (const t of inf.sample_trees) {
+                        inferHtml += `<div class="hit-cat"><div class="hit-cat-name">Tree #${t.tree_index} → Leaf ${t.leaf_id}</div>`;
+                        for (const step of (t.path||[])) {
+                            if (step.type === 'split') {
+                                const arrow = step.direction === 'yes' ? '←' : '→';
+                                inferHtml += `<div class="hit-cat-rule" style="font-size:10px">${step.condition} ? ${step.result} (val=${step.sample_value}) ${arrow}</div>`;
+                            } else {
+                                inferHtml += `<div class="hit-cat-rule" style="font-size:10px;color:#ffa726">🍃 score=${step.score}</div>`;
+                            }
+                        }
+                        inferHtml += `</div>`;
+                    }
+                    inferHtml += `</div>`;
+                }
+            }
+
+            m.innerHTML = `
+                <div class="detail-grid">
+                    <div class="detail-item"><div class="dl">Transaction ID</div><div class="dv" style="font-family:monospace;font-size:12px">${alert.transaction_id||''}</div></div>
+                    <div class="detail-item"><div class="dl">Customer</div><div class="dv">${alert.customer_id||''}</div></div>
+                    <div class="detail-item"><div class="dl">Amount</div><div class="dv amount">${fmtAmt(alert.amount)}</div></div>
+                    <div class="detail-item"><div class="dl">Fund</div><div class="dv" style="font-size:12px">${alert.fund_name||''} (${alert.fund_code||''})</div></div>
+                    <div class="detail-item"><div class="dl">Region</div><div class="dv">${alert.region_name||''} ${alert.is_high_risk_region?'<span style="color:#ef5350;font-size:10px">⚠ HIGH RISK</span>':''}</div></div>
+                    <div class="detail-item"><div class="dl">Risk Probability</div><div class="dv">${probSpan(alert.risk_probability||0)} ${riskTag(alert.risk_level||'')}</div></div>
+                    <div class="detail-item"><div class="dl">Type / Channel</div><div class="dv" style="font-size:12px">${alert.transaction_type||''} / ${alert.channel||''} / ${alert.payment_method||''}</div></div>
+                    <div class="detail-item"><div class="dl">Trigger</div><div class="dv">${triggerTag(alert)}</div></div>
+                    <div class="detail-item"><div class="dl">Account Age</div><div class="dv">${alert.account_age_days||'-'} days</div></div>
+                    <div class="detail-item"><div class="dl">7d TX Count / Amount</div><div class="dv" style="font-size:12px">${alert.recent_tx_count_7d||0} / ${fmtAmt(alert.recent_tx_amount_7d)}</div></div>
+                    <div class="detail-item"><div class="dl">IP Changes / Login Fails</div><div class="dv">${alert.ip_change_count_7d||0} / ${alert.login_fail_count_24h||0}</div></div>
+                    <div class="detail-item"><div class="dl">Flags</div><div class="dv" style="font-size:11px">${alert.blacklist_hit?'🚫BL ':''}${alert.watchlist_hit?'👁WL ':''}${alert.aml_flag?'⚠AML ':''} KYC:${alert.kyc_score||'-'}</div></div>
+                </div>
+                ${catHtml ? '<div class="hit-rules-section"><h3>📋 Hit Rule Categories</h3>' + catHtml + '</div>' : ''}
+                ${inferHtml}
+            `;
+            document.getElementById('reviewModal').classList.add('show');
+        }
+        function closeModal() {
+            document.getElementById('reviewModal').classList.remove('show');
+            _currentAlertId = null;
+        }
+        async function submitReview(status) {
+            if (!_currentAlertId) { closeModal(); return; }
+            const comment = document.getElementById('reviewComment').value;
+            await fetch('/api/review', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({alert_id:_currentAlertId, status, comment})});
+            closeModal();
+            document.getElementById('reviewComment').value = '';
+            loadAlerts();
+            loadReviewStats();
+        }
+
+        // === Control Panel ===
+        async function togglePause() {
+            const btn = document.getElementById('btnPause');
+            const isPaused = btn.classList.contains('active');
+            const action = isPaused ? 'resume' : 'pause';
+            await fetch('/api/control', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action})});
+            btn.classList.toggle('active', !isPaused);
+            btn.innerHTML = isPaused ? '⏸ Pause TX' : '▶ Resume TX';
+            if (!isPaused) {
+                document.getElementById('btnStress').classList.remove('active');
+                document.getElementById('btnStress').innerHTML = '⚡ Stress Test';
+            }
+        }
+        async function toggleStress() {
+            const btn = document.getElementById('btnStress');
+            const isActive = btn.classList.contains('active');
+            if (isActive) {
+                await fetch('/api/control', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'stop_stress'})});
+                btn.classList.remove('active');
+                btn.innerHTML = '⚡ Stress Test';
+            } else {
+                const tps = parseInt(document.getElementById('tpsInput').value) || 50;
+                await fetch('/api/control', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'stress', tps})});
+                btn.classList.add('active');
+                btn.innerHTML = '🔥 Stress Running';
+                document.getElementById('btnPause').classList.remove('active');
+                document.getElementById('btnPause').innerHTML = '⏸ Pause TX';
+            }
+        }
+        async function startRetrain() {
+            const btn = document.getElementById('btnTrain');
+            if (btn.classList.contains('active')) return;
+            btn.classList.add('active');
+            btn.innerHTML = '⏳ Training...';
+            await fetch('/api/retrain', {method:'POST'});
+        }
+        async function pollControlStatus() {
+            try {
+                const r = await fetch('/api/control/status');
+                const d = await r.json();
+                const ps = d.perf_stats || {};
+                document.getElementById('perfTps').textContent = ps.recent_tps || '-';
+                document.getElementById('perfPeak').textContent = ps.peak_tps || '-';
+                document.getElementById('perfInfer').textContent = ps.avg_inference_ms ? ps.avg_inference_ms + 'ms' : '-';
+                document.getElementById('perfRule').textContent = ps.avg_rule_ms ? ps.avg_rule_ms + 'ms' : '-';
+                document.getElementById('perfTotal').textContent = ps.avg_total_ms ? ps.avg_total_ms + 'ms' : '-';
+                if (d.training) {
+                    document.getElementById('trainProgress').textContent = d.train_progress || '';
+                    document.getElementById('btnTrain').classList.add('active');
+                    document.getElementById('btnTrain').innerHTML = '⏳ Training...';
+                } else {
+                    if (document.getElementById('btnTrain').classList.contains('active')) {
+                        document.getElementById('btnTrain').classList.remove('active');
+                        document.getElementById('btnTrain').innerHTML = '🔄 Retrain Model';
+                        if (d.train_progress) document.getElementById('trainProgress').textContent = d.train_progress;
+                        setTimeout(() => { document.getElementById('trainProgress').textContent = ''; }, 8000);
+                        loadFeatures();
+                    }
+                }
+            } catch(e) {}
+        }
+
+        async function toggleVeto(ruleId, veto) {
+            await fetch('/api/rules/veto', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({rule_id:ruleId, veto})});
+        }
+
+        async function markTx(txId, label) {
+            await fetch('/api/mark_transaction', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({tx_id:txId, label})});
+            loadTransactions();
+        }
+
+        // === Model Versioning ===
+        async function loadModelVersions() {
+            try {
+                const r = await fetch('/api/model_versions');
+                const d = await r.json();
+                const sel = document.getElementById('modelSelect');
+                const prev = sel.value;
+                sel.innerHTML = '';
+                for (const v of d.versions) {
+                    const opt = document.createElement('option');
+                    opt.value = v.name;
+                    opt.textContent = v.name === 'current' ? '✦ Current (latest)' : v.label + ' (' + v.time.substring(5,16) + ')';
+                    if (v.name === d.active) opt.selected = true;
+                    sel.appendChild(opt);
+                }
+            } catch(e) { console.error('loadModelVersions error:', e); }
+        }
+        async function switchModel(version) {
+            try {
+                const r = await fetch('/api/switch_model', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({version})});
+                const d = await r.json();
+                if (d.success) {
+                    document.getElementById('trainProgress').textContent = d.message;
+                    setTimeout(() => { document.getElementById('trainProgress').textContent = ''; }, 4000);
+                    loadFeatures();
+                } else {
+                    alert(d.error || 'Failed to switch model');
+                }
+            } catch(e) { alert('Error switching model'); }
+        }
+
+        // === Init & Refresh ===
+        async function refreshAll() {
+            try {
+                await Promise.all([loadStats(), loadTransactions(), loadAlerts(), pollControlStatus()]);
+                const txData = await (await fetch('/api/transactions?limit=100')).json();
+                drawScatter(txData);
+            } catch(e) { console.error('Refresh error:', e); }
+        }
+
+        (async function init() {
+            await refreshAll();
+            loadRules();
+            loadFeatures();
+            loadModelVersions();
+            setInterval(refreshAll, 2000);
+            setInterval(loadModelVersions, 10000);
+        })();
+
+        // Close modal on Escape
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+        // Close modal on overlay click
+        document.getElementById('reviewModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
+    </script>
+</body>
+</html>

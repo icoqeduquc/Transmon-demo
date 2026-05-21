@@ -1,0 +1,423 @@
+[
+  {
+    "category_id": "C01",
+    "category_name": "AML Rules",
+    "category_description": "Anti-money laundering monitoring rules",
+    "risk_weight": 5,
+    "sub_rules": [
+      {
+        "rule_id": "C01-001",
+        "name": "AML Flag Hit",
+        "field": "aml_flag",
+        "operator": "==",
+        "value": 1,
+        "description": "Customer triggered AML system flag",
+        "veto": false
+      },
+      {
+        "rule_id": "C01-002",
+        "name": "Large Cash Transaction",
+        "field": "amount",
+        "operator": ">=",
+        "value": 500000,
+        "condition": "payment_method in ['Cash']",
+        "description": "Single cash transaction exceeds 500K"
+      },
+      {
+        "rule_id": "C01-003",
+        "name": "Split Transaction Suspect",
+        "field": "same_day_tx_count",
+        "operator": ">=",
+        "value": 8,
+        "condition": "amount < 500000",
+        "description": "8+ same-day transactions under 500K each, suspected structuring"
+      },
+      {
+        "rule_id": "C01-004",
+        "name": "Cross-border Large Transfer",
+        "field": "is_cross_border",
+        "operator": "==",
+        "value": true,
+        "condition": "amount >= 200000",
+        "description": "Cross-border transaction amount exceeds 200K"
+      },
+      {
+        "rule_id": "C01-005",
+        "name": "Short-term Dense Trading",
+        "field": "recent_tx_count_7d",
+        "operator": ">=",
+        "value": 20,
+        "description": "20+ transactions within 7 days"
+      }
+    ]
+  },
+  {
+    "category_id": "C02",
+    "category_name": "Customer Identity Rules",
+    "category_description": "Customer KYC, qualified investor, blacklist and identity rules",
+    "risk_weight": 4,
+    "sub_rules": [
+      {
+        "rule_id": "C02-001",
+        "name": "Blacklist Hit",
+        "field": "blacklist_hit",
+        "operator": "==",
+        "value": true,
+        "description": "Customer on blacklist"
+      },
+      {
+        "rule_id": "C02-002",
+        "name": "Watchlist Hit",
+        "field": "watchlist_hit",
+        "operator": "==",
+        "value": true,
+        "description": "Customer on watchlist"
+      },
+      {
+        "rule_id": "C02-003",
+        "name": "Low KYC Score",
+        "field": "kyc_score",
+        "operator": "<",
+        "value": 40,
+        "description": "Customer KYC score below 40"
+      },
+      {
+        "rule_id": "C02-004",
+        "name": "Unqualified Investor High-risk Product",
+        "field": "is_qualified_investor",
+        "operator": "==",
+        "value": false,
+        "condition": "fund_risk_level >= 4",
+        "description": "Non-qualified investor purchasing risk level 4+ product"
+      },
+      {
+        "rule_id": "C02-005",
+        "name": "Risk Tolerance Mismatch",
+        "field": "customer_risk_tolerance",
+        "operator": "<",
+        "value": "fund_risk_level",
+        "description": "Customer risk tolerance below fund risk level"
+      },
+      {
+        "rule_id": "C02-006",
+        "name": "New Account Large Transaction",
+        "field": "account_age_days",
+        "operator": "<=",
+        "value": 30,
+        "condition": "amount >= 500000",
+        "description": "Single transaction exceeds 500K within 30 days of account opening"
+      }
+    ]
+  },
+  {
+    "category_id": "C03",
+    "category_name": "Transaction Amount Rules",
+    "category_description": "Monitoring rules for abnormal transaction amounts",
+    "risk_weight": 3,
+    "sub_rules": [
+      {
+        "rule_id": "C03-001",
+        "name": "Ultra-large Transaction",
+        "field": "amount",
+        "operator": ">=",
+        "value": 5000000,
+        "description": "Single transaction exceeds 5M"
+      },
+      {
+        "rule_id": "C03-002",
+        "name": "Large Transaction",
+        "field": "amount",
+        "operator": ">=",
+        "value": 1000000,
+        "description": "Single transaction exceeds 1M"
+      },
+      {
+        "rule_id": "C03-003",
+        "name": "7-day Cumulative Amount Anomaly",
+        "field": "recent_tx_amount_7d",
+        "operator": ">=",
+        "value": 5000000,
+        "description": "7-day cumulative transaction amount exceeds 5M"
+      },
+      {
+        "rule_id": "C03-004",
+        "name": "30-day Cumulative Amount Anomaly",
+        "field": "recent_tx_amount_30d",
+        "operator": ">=",
+        "value": 20000000,
+        "description": "30-day cumulative transaction amount exceeds 20M"
+      },
+      {
+        "rule_id": "C03-005",
+        "name": "Excessive Holding Concentration",
+        "field": "holding_ratio",
+        "operator": ">",
+        "value": 0.5,
+        "description": "Single transaction exceeds 50% of total holdings"
+      }
+    ]
+  },
+  {
+    "category_id": "C04",
+    "category_name": "Transaction Behavior Rules",
+    "category_description": "Monitoring for anomalies in frequency, timing, and channels",
+    "risk_weight": 3,
+    "sub_rules": [
+      {
+        "rule_id": "C04-001",
+        "name": "Off-hours Trading",
+        "field": "is_trading_hours",
+        "operator": "==",
+        "value": false,
+        "description": "Transaction submitted outside normal trading hours (9:00-15:00)"
+      },
+      {
+        "rule_id": "C04-002",
+        "name": "7-day Frequency Anomaly",
+        "field": "recent_tx_count_7d",
+        "operator": ">=",
+        "value": 15,
+        "description": "15+ transactions within 7 days"
+      },
+      {
+        "rule_id": "C04-003",
+        "name": "Same-day Same-fund Repeat",
+        "field": "same_fund_tx_count",
+        "operator": ">=",
+        "value": 3,
+        "description": "3+ transactions on same fund in one day"
+      },
+      {
+        "rule_id": "C04-004",
+        "name": "Month-end Concentrated Trading",
+        "field": "is_month_end",
+        "operator": "==",
+        "value": true,
+        "condition": "same_day_tx_count >= 5",
+        "description": "5+ transactions on month-end day, suspected volume pumping"
+      },
+      {
+        "rule_id": "C04-005",
+        "name": "Quarter-end Large Transaction",
+        "field": "is_quarter_end",
+        "operator": "==",
+        "value": true,
+        "condition": "amount >= 1000000",
+        "description": "Large transaction at quarter-end, suspected AUM adjustment"
+      }
+    ]
+  },
+  {
+    "category_id": "C05",
+    "category_name": "Region & Cross-border Rules",
+    "category_description": "Monitoring for high-risk regions and cross-border transactions",
+    "risk_weight": 4,
+    "sub_rules": [
+      {
+        "rule_id": "C05-001",
+        "name": "High-risk Region Transaction",
+        "field": "is_high_risk_region",
+        "operator": "==",
+        "value": true,
+        "description": "Transaction from high-risk region (offshore centers, etc.)"
+      },
+      {
+        "rule_id": "C05-002",
+        "name": "Cross-border Transaction",
+        "field": "is_cross_border",
+        "operator": "==",
+        "value": true,
+        "description": "Involves cross-border fund flow"
+      },
+      {
+        "rule_id": "C05-003",
+        "name": "Non-CNY Transaction",
+        "field": "currency",
+        "operator": "!=",
+        "value": "CNY",
+        "description": "Transaction in non-CNY currency"
+      }
+    ]
+  },
+  {
+    "category_id": "C06",
+    "category_name": "Payment Method Rules",
+    "category_description": "Monitoring for abnormal payment methods",
+    "risk_weight": 3,
+    "sub_rules": [
+      {
+        "rule_id": "C06-001",
+        "name": "Check Payment",
+        "field": "payment_method",
+        "operator": "==",
+        "value": "Check",
+        "description": "Payment by check"
+      },
+      {
+        "rule_id": "C06-002",
+        "name": "Cash Payment",
+        "field": "payment_method",
+        "operator": "==",
+        "value": "Cash",
+        "description": "Payment by cash"
+      },
+      {
+        "rule_id": "C06-003",
+        "name": "Bank Draft Payment",
+        "field": "payment_method",
+        "operator": "==",
+        "value": "Bank Draft",
+        "description": "Payment by bank draft"
+      },
+      {
+        "rule_id": "C06-004",
+        "name": "Large Wire Transfer",
+        "field": "payment_method",
+        "operator": "==",
+        "value": "Wire Transfer",
+        "condition": "amount >= 1000000",
+        "description": "Wire transfer amount exceeds 1M"
+      }
+    ]
+  },
+  {
+    "category_id": "C07",
+    "category_name": "Device & Network Security Rules",
+    "category_description": "Monitoring for login device, IP address security anomalies",
+    "risk_weight": 3,
+    "sub_rules": [
+      {
+        "rule_id": "C07-001",
+        "name": "Frequent IP Changes",
+        "field": "ip_change_count_7d",
+        "operator": ">=",
+        "value": 5,
+        "description": "5+ IP address changes within 7 days"
+      },
+      {
+        "rule_id": "C07-002",
+        "name": "Frequent Device Changes",
+        "field": "device_change_count_7d",
+        "operator": ">=",
+        "value": 3,
+        "description": "3+ device changes within 7 days"
+      },
+      {
+        "rule_id": "C07-003",
+        "name": "New Device Transaction",
+        "field": "is_new_device",
+        "operator": "==",
+        "value": true,
+        "condition": "amount >= 500000",
+        "description": "Large transaction (500K+) from new device"
+      },
+      {
+        "rule_id": "C07-004",
+        "name": "Frequent Login Failures",
+        "field": "login_fail_count_24h",
+        "operator": ">=",
+        "value": 3,
+        "description": "3+ login failures within 24 hours"
+      },
+      {
+        "rule_id": "C07-005",
+        "name": "Login Failure then Large TX",
+        "field": "login_fail_count_24h",
+        "operator": ">=",
+        "value": 2,
+        "condition": "amount >= 500000",
+        "description": "Large transaction after 2+ login failures"
+      }
+    ]
+  },
+  {
+    "category_id": "C08",
+    "category_name": "Related Party Rules",
+    "category_description": "Monitoring for related party transactions and benefit transfer",
+    "risk_weight": 3,
+    "sub_rules": [
+      {
+        "rule_id": "C08-001",
+        "name": "Related Party Transaction",
+        "field": "is_related_party",
+        "operator": "==",
+        "value": true,
+        "description": "Counterparty is a related party"
+      },
+      {
+        "rule_id": "C08-002",
+        "name": "Related Party Large TX",
+        "field": "is_related_party",
+        "operator": "==",
+        "value": true,
+        "condition": "amount >= 1000000",
+        "description": "Related party transaction exceeds 1M"
+      },
+      {
+        "rule_id": "C08-003",
+        "name": "Related Party Frequent TX",
+        "field": "is_related_party",
+        "operator": "==",
+        "value": true,
+        "condition": "same_day_tx_count >= 3",
+        "description": "3+ transactions with related party in one day"
+      }
+    ]
+  },
+  {
+    "category_id": "C09",
+    "category_name": "Global Statistical Anomaly Rules",
+    "category_description": "Anomaly detection based on market/fund/region-level daily statistics",
+    "risk_weight": 4,
+    "sub_rules": [
+      {
+        "rule_id": "C09-001",
+        "name": "High Customer Fund Share",
+        "field": "ctx_customer_share_of_fund",
+        "operator": ">=",
+        "value": 0.3,
+        "description": "Customer's daily TX amount exceeds 30% of fund's daily total"
+      },
+      {
+        "rule_id": "C09-002",
+        "name": "High Customer Market Share",
+        "field": "ctx_customer_share_of_market",
+        "operator": ">=",
+        "value": 0.1,
+        "description": "Customer's daily TX amount exceeds 10% of market daily total"
+      },
+      {
+        "rule_id": "C09-003",
+        "name": "Customer Daily TX Count Anomaly",
+        "field": "ctx_customer_today_count",
+        "operator": ">=",
+        "value": 10,
+        "description": "Customer has 10+ transactions today"
+      },
+      {
+        "rule_id": "C09-004",
+        "name": "Customer Daily Amount Anomaly",
+        "field": "ctx_customer_today_amount",
+        "operator": ">=",
+        "value": 5000000,
+        "description": "Customer's daily cumulative amount exceeds 5M"
+      },
+      {
+        "rule_id": "C09-005",
+        "name": "Customer Cross-fund Diversification",
+        "field": "ctx_customer_today_fund_variety",
+        "operator": ">=",
+        "value": 5,
+        "description": "Customer traded 5+ different funds today, suspected dispersion"
+      },
+      {
+        "rule_id": "C09-006",
+        "name": "Region Concentration Anomaly",
+        "field": "ctx_region_share_of_market",
+        "operator": ">=",
+        "value": 0.5,
+        "description": "Region's daily TX exceeds 50% of market total"
+      }
+    ]
+  }
+]

@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project: runtime artifacts (do not commit)
+# SQLite databases (large, regenerated at runtime)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Generated transaction data and alerts
+fund_risk_monitor/data/incoming/*.json
+fund_risk_monitor/data/alerts/*.json
+
+# Generated training data (regenerable)
+fund_risk_monitor/data/training_data.csv
+
+# Model retraining history snapshots (only keep the active model)
+fund_risk_monitor/models/history/
+
+# Local logs
+stderr.txt
+stdout.txt
+*.log
+
+# Local distribution staging
+_dist/
+*.zip
+
+# Backup files
+*.bak
